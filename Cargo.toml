@@ -3,6 +3,7 @@ name = "credchain-contract"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+authors = ["floxxih <harobedjosh@gmail.com>"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -22,4 +23,3 @@ debug-assertions = false
 panic = "abort"
 codegen-units = 1
 lto = true
-
