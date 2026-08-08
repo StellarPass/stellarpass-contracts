@@ -1,3 +1,7 @@
 target/
-.DS_Store
 
+# Soroban
+.soroban/
+
+# Test artifacts
+test_snapshots/

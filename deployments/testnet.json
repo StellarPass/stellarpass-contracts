@@ -1,0 +1,10 @@
+{
+  "$schema": "./schema.json",
+  "network": "testnet",
+  "contract_id": "",
+  "wasm_hash": "",
+  "spec_version": "1.0.0",
+  "deploy_tx_hash": "",
+  "deployed_at": "",
+  "upgrade_admin": ""
+}

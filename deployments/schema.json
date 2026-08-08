@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Contract Deployment Manifest",
+  "type": "object",
+  "required": ["network", "contract_id", "wasm_hash", "spec_version"],
+  "properties": {
+    "network": { "type": "string", "enum": ["testnet", "mainnet"] },
+    "contract_id": { "type": "string" },
+    "wasm_hash": { "type": "string" },
+    "spec_version": { "type": "string" },
+    "deploy_tx_hash": { "type": "string" },
+    "deployed_at": { "type": "string", "format": "date-time" },
+    "upgrade_admin": { "type": "string" }
+  }
+}
