@@ -1,29 +1,60 @@
 # StellarPass Contracts
 
-Soroban smart contracts for wallet-native community membership and access control on Stellar.
+The on-chain membership and access-control layer for StellarPass.
 
-## Architecture
+This repository contains the Soroban Rust contract that owns the authoritative state for StellarPass communities. The API, SDK, frontend, and third-party integrations should treat this contract and its events as the source of truth for access.
 
-The `StellarPassContract` is the on-chain source of truth for communities and their membership records:
+## What This Repo Owns
 
-- **Communities** are created by wallet-authorized admins.
-- **Roles** are granted, updated, and revoked by community admins.
-- **Access** is verified directly against on-chain state.
-- **Upgrades** are controlled by a dedicated upgrade-admin address with no community authority.
+- Community identity: ID, admin wallet, name, and creation timestamp.
+- One role record per wallet per community.
+- Role grant, update, revocation, and optional expiry behavior.
+- Direct `has_access` and `get_role` reads.
+- Stable events consumed by `stellarpass-api`.
+- Contract versioning and the controlled upgrade entry point.
+
+It does **not** own community descriptions, images, Discord configuration, or other display metadata. Those belong to the API read model.
+
+## Product Integration
+
+```text
+stellarpass-app / external apps
+          |
+          | wallet-signed transactions and reads
+          v
+StellarPass Soroban contract
+          |
+          | contract events
+          v
+stellarpass-api indexer
+```
+
+`stellarpass-sdk` wraps the contract interface for TypeScript consumers. `stellarpass-app` currently uses mock actions for its reviewer build, but its wallet integration is designed to call these contract methods once a real deployment is configured.
 
 ## Contract Methods
 
-| Method | Auth | Description |
+| Method | Authorization | Description |
 |---|---|---|
-| `initialize(upgrade_admin)` | Deploy | One-time constructor |
-| `create_community(admin, name)` | admin | Create new community, returns ID |
-| `grant_role(admin, community_id, member, role, expires_at)` | admin | Grant or update membership |
-| `revoke_role(admin, community_id, member)` | admin | Revoke access |
-| `has_access(member, community_id)` | Public | Check access |
-| `get_role(member, community_id)` | Public | Get role record |
-| `get_community(community_id)` | Public | Get community info |
-| `upgrade(upgrade_admin, wasm_hash)` | upgrade_admin | Upgrade contract WASM |
-| `version()` | Public | Returns contract version |
+| `__constructor(upgrade_admin)` | Deployment | One-time contract initialization |
+| `create_community(admin, name)` | `admin` wallet | Creates a community and returns its ID |
+| `grant_role(admin, community_id, member, role, expires_at)` | Community admin | Grants or updates one member role |
+| `revoke_role(admin, community_id, member)` | Community admin | Revokes current access while preserving the record |
+| `has_access(member, community_id)` | Public | Returns whether the wallet currently has access |
+| `get_role(member, community_id)` | Public | Returns the current role record |
+| `get_community(community_id)` | Public | Returns community details |
+| `upgrade(upgrade_admin, wasm_hash)` | Upgrade admin | Updates contract WASM |
+| `version()` | Public | Returns the contract version |
+
+## Contract Rules
+
+- The wallet creating a community is its admin in v1.
+- The protocol upgrade admin can upgrade code only; it cannot administer communities.
+- A wallet has exactly one role per community.
+- An identical grant is an idempotent no-op.
+- A changed role or expiry emits `role_updated`.
+- A revoked role can be granted again.
+- `expires_at <= ledger_timestamp` means expired.
+- `None` means no expiry.
 
 ## Events
 
@@ -35,48 +66,28 @@ The `StellarPassContract` is the on-chain source of truth for communities and th
 | `role_revoked` | `community_id`, `member` | — |
 | `contract_upgraded` | — | `wasm_hash` |
 
-## Access Rules
+The API indexer depends on these event names and payloads. Event changes require a coordinated contract, API, SDK, and documentation update.
 
-- No role record → no access.
-- Revoked role → no access.
-- Expired role (`expires_at <= ledger timestamp`) → no access.
-- `expires_at == None` → active indefinitely.
-- Identical duplicate grant → idempotent no-op.
-- Changed role or expiry → updates record and emits `role_updated`.
-- Re-grant after revocation → clears revocation, emits `role_granted`.
+## Development
 
-## Building
+Prerequisites: Rust, the `wasm32v1-none` target, and the Stellar CLI for deployment.
 
 ```bash
 rustup target add wasm32v1-none
 cargo test
+cargo fmt --all --check
+cargo clippy --all-targets -- -D warnings
 cargo build --release --target wasm32v1-none
 ```
 
-## Deploying
+The optimized WASM artifact is consumed by `stellarpass-devops` deployment scripts. Deployment metadata belongs in `deployments/<network>.json`.
 
-```bash
-stellar contract deploy \
-  --wasm target/wasm32v1-none/release/stellarpass_contract.wasm \
-  --source-account <source> \
-  --network testnet \
-  -- \
-  --upgrade_admin <upgrade-admin-address>
-```
+## Related Repositories
 
-Record the deployed contract ID and WASM hash in `deployments/testnet.json`.
-
-## Decision Records
-
-| Decision | Value |
-|---|---|
-| Protocol authority | `upgrade_admin` can upgrade code only |
-| Community admin | Creator wallet is sole admin in v1 |
-| Roles per member | Exactly one per community |
-| Duplicate grants | Idempotent no-op |
-| Re-grant after revoke | Allowed |
-| Expiry unit | Unix seconds, `<=` ledger timestamp |
-| Upgrade | Supported, upgrade-admin only |
+- [`stellarpass-api`](https://github.com/StellarPass/stellarpass-api): indexes these events and serves derived reads.
+- [`stellarpass-sdk`](https://github.com/StellarPass/stellarpass-sdk): exposes typed contract methods to TypeScript.
+- [`stellarpass-app`](https://github.com/StellarPass/stellarpass-app): provides the admin/member experience.
+- [`stellarpass-docs`](https://github.com/StellarPass/stellarpass-docs): canonical protocol and event documentation.
 
 ## License
 

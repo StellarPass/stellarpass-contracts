@@ -351,14 +351,13 @@ impl StellarPassContract {
 
     pub fn get_community(env: Env, community_id: u64) -> Result<Option<Community>, Error> {
         let key = CommunityKey::ById(community_id);
-        Ok(env.storage().persistent().get::<CommunityKey, Community>(&key))
+        Ok(env
+            .storage()
+            .persistent()
+            .get::<CommunityKey, Community>(&key))
     }
 
-    pub fn upgrade(
-        env: Env,
-        upgrade_admin: Address,
-        wasm_hash: BytesN<32>,
-    ) -> Result<(), Error> {
+    pub fn upgrade(env: Env, upgrade_admin: Address, wasm_hash: BytesN<32>) -> Result<(), Error> {
         let stored_admin: Address = env
             .storage()
             .instance()
